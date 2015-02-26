@@ -48,9 +48,9 @@ bool rungeKutta1(std::function<double(double, double)> F, double y0, std::vector
 		if (evals > 1000000) break;
 	}
 
-	// We made it here, means we haven't failed!  Debug message below.
+	// We made it here, means we haven't failed!  Debug messages below.
 	// std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
-	std::cout << "We have made it to x=" << x.at(x.size()-1) << std::endl;
+	// std::cout << "We have made it to x=" << x.at(x.size()-1) << std::endl;
 	return true;
 }
 
