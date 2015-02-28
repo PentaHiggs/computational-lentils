@@ -46,13 +46,13 @@ std::vector<double> exx1(double h, double x, const std::vector<double> &y, \
 	return y + (1./6.)*kay1 + (1./3.)*kay2 + (1./3.)*kay3 + (1./6.)*kay4;
 }
 	
-bool rungeKutta1(const std::function<double(double, double)> &F, double y0, std::vector<double>& x, \
-		std::vector<double>& y, double left, double right, double e) {
+bool rungeKutta1(const std::function<double(double, double)> &F, double y0, std::vector<double> &x, \
+		std::vector<double> &y, double left, double right, double e) {
 	// Debugging variable
 	unsigned int evals = 0;
 
 	// Setting a few parameters
-	const double h0 = (right-left) / 100000.;
+	const double h0 = (right-left) / 1000.;
 	const double hlow = h0/10;
 	const double minDel = .0000001;
 	const double rMax = 2.;
@@ -74,17 +74,17 @@ bool rungeKutta1(const std::function<double(double, double)> &F, double y0, std:
 		h *= ratio;
 		if (h < hlow) {h = hlow;}
 		y0 = exx1(h, x0, y0, F); ++evals;
-		if (evals > 1000000) break;
+		if (evals > 5000000) break;
 	}
 
 	// We made it here, means we haven't failed!  Debug messages below.
 	// std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
-	std::cout << "We have made it to x=" << x.at(x.size()-1) << std::endl;
+	std::cout << "We have made it to x=" << x.at(x.size()-1);
 	return true;
 }
 
-// Overload of  where it, and F, have a dependant variable that is a
-// vector of doubles instead of just a scalar double.  The error is a vector, too.
+// Overload of runge-kutta where it and F have a dependant variable that is a
+// vector of doubles instead of just a scalar double.
 bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<double>)> &F, \
 		std::vector<double> y0, std::vector<double> &x, \
 		std::vector< std::vector<double> > &y, double left, double right, double e) {
@@ -97,8 +97,8 @@ bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<dou
 
 	// Setting a few necessary parameters
 	const double h0 = (right - left) / 100000.;
-	const double hlow = h0/10;
-	const double minDel = .0000001;
+	const double hlow = h0/1000;
+	const double minDel = .00000001;
 	const double rMax = 2.;
 
 	double h = h0;
@@ -115,16 +115,23 @@ bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<dou
 		std::for_each(toDel.begin(), toDel.end(), [&del](double &dub){ del=std::max(del, std::abs(dub)); });
 		
 		double ratio = std::min( (15./16.)*std::pow(e/del, 1./5.) , rMax);
-		if (ratio == 0) { return false; }
 
 		h *= ratio;
-		if (h < hlow) {h = hlow;}
+		if (h < hlow) {return false;}
+		// Sometimes h reaches out of the range (left,right) because the function is so ridiculously easy to
+		// evaluate without error.  This keeps it in there!
+		if ( (right - x0) < h){ 
+			h = right - x0 - hlow;
+			if (h < hlow) {break;} // you're already so close to right.  We can stop now.
+		}
 
 		y0 = exx1(h, x0, y0, F); evals+=dim;
-		if (evals > 10000000) break;
+		if (evals > 4000000) break;
 	}
 		// We made it here!  This means catastrophic failure has been averted, hopefully.  Debug msgs below.
 		// std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
-		std::cout << "We have made it to x=" << x.at(x.size()-1) << std::endl;
+		std::cout << "We have made it to x=" << x.at(x.size()-1) << " using " << evals \
+			<< " evaluations!" << std::endl;
+		std::cout << "The last h was " << h << std::endl;
 		return true;
 }

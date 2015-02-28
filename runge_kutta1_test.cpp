@@ -65,7 +65,70 @@ void bool_rungeKutta1_test_1() {
 	return;
 }
 
+void bool_rungeKutta1_test_2(){
+	/* Here, we test the overloaded version of runge-kutta that takes in and spits out vectors.
+	 * (d/dt){x_1,x_2} = {x_2,-x_1} This should produce a pair of trigs, x_1 being A*cos(t+o) and
+	 * x_2 being -A*sin(t+o), where o = arcsin(-x_1/A) = arccos(x_2/A).
+	 * Lets hope for the best!
+	 */  
+	typedef std::function<std::vector<double>(double, std::vector<double>)> myFunc;
+	typedef std::vector<std::vector<double> > doubleVec;
 
+	std::vector<double> kutta_t;
+	doubleVec kutta_x;
+
+	TCanvas* canvas = new TCanvas();
+	TMultiGraph* mg = new TMultiGraph;
+	mg->SetTitle("Runge-kutta(vector) approximations of trig functions");
+	
+	myFunc F = [](double t, const std::vector<double> &x) {
+		std::vector<double> retVal;
+		retVal.push_back(x[1]);
+		retVal.push_back(-x[0]);
+		return retVal;
+	};
+
+	// This starting condition, x=x_dot=0 should give us the trivial solution where x_1(t)=x_2(t)=0
+	std::vector<double> x0_trivial = {0.,0.};
+	// This starting condition, x_dot=1, x=0, should give us x_1=sin(t)
+	std::vector<double> x0_sine = {std::sin(-5.), std::cos(-5.)};
+	// This starting condition should give us x_1 = cos(t)
+	std::vector<double> x0_cosine = {std::cos(-5.),-std::sin(-5)};
+	// Lets stick them all in one place for ease of execution
+	doubleVec all_x0;
+	all_x0.push_back(x0_trivial);
+  	all_x0.push_back(x0_sine); 
+	all_x0.push_back(x0_cosine);
+
+	double theBounds[2] = {-5., 5.};
+	
+	unsigned int lineColor = 0;
+
+	// God knows what type kBlue, kRed, kGreen are (probably strings/structs/int constants or something)
+	std::vector<decltype(kBlue)> colors_woo = {kBlue, kRed, kGreen};
+
+	for (std::vector<double> x0 : all_x0){
+		kutta_t.clear();
+		kutta_x.clear();
+		if(rungeKutta1(F, x0, kutta_t, kutta_x, theBounds[0], theBounds[1], .0001)){
+			// Extract the x first
+			std::vector<double> ecks;
+			ecks.reserve(kutta_x.size());
+			for(std::vector<double> x : kutta_x){ ecks.push_back(x[0]); }
+
+			// Now graph it
+			TGraph* rungeGraph = new TGraph(kutta_x.size(), kutta_t.data(), ecks.data());
+			rungeGraph->SetLineColor(colors_woo[lineColor]);
+			mg->Add(rungeGraph);
+		} else {
+			std::cout << "Runge-kutta has failed!" << std::endl;
+			return;
+		}
+		lineColor++;
+	}
+	mg->Draw("AL");
+	return;
+}
 
 
 void double_exx1_test_1(){
@@ -198,5 +261,12 @@ void runge_kutta1_test() {
 	std::cin >> yesno;
 	if (yesno=='y') {
 		bool_rungeKutta1_test_1();
+	}
+
+	std::cout << std::endl;
+	std::cout << "Run rungeKutta test 2? (y/n): ";
+	std::cin >> yesno;
+	if (yesno=='y') {
+		bool_rungeKutta1_test_2();
 	}
 }
