@@ -54,7 +54,7 @@ bool rungeKutta1(const std::function<double(double, double)> &F, double y0, std:
 	// Setting a few parameters
 	const double h0 = (right-left) / 1000.;
 	const double hlow = h0/10;
-	const double minDel = .0000001;
+	const double minDel = .00000001;
 	const double rMax = 2.;
 	
 	double h = h0;
@@ -96,10 +96,10 @@ bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<dou
 	unsigned int evals = 0;
 
 	// Setting a few necessary parameters
-	const double h0 = (right - left) / 100000.;
-	const double hlow = h0/1000;
-	const double minDel = .00000001;
-	const double rMax = 2.;
+	const double h0 = (right - left) / 1000000.;
+	const double hlow = h0/1000.;
+	const double minDel = 1.e-15;
+	const double rMax = 10.;
 
 	double h = h0;
 
@@ -108,28 +108,27 @@ bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<dou
 		x.push_back(x0);
 		y.push_back(y0);
 
-		std::vector<double> toDel = exx1(h, x0, y0, F) + (-1.)*exx1(h/2, x0, y0, F) ; evals+=2*dim;
-
 		// I want to the greatest del to set my next h
 		double del = minDel;
-		std::for_each(toDel.begin(), toDel.end(), [&del](double &dub){ del=std::max(del, std::abs(dub)); });
-		
-		double ratio = std::min( (15./16.)*std::pow(e/del, 1./5.) , rMax);
+		evals += 2*dim;
+		for ( double dels : (exx1(h, x0, y0, F) +(-1.)*exx1(h/2. ,x0, exx1(h/2., x0, y0, F), F)) ) {
+			del = std::max(del, std::abs(dels));
+		}
 
-		h *= ratio;
+		h *= std::min( (15./16.)*std::pow(e/del, 1./5.) , rMax);
+
 		if (h < hlow) {return false;}
 		// Sometimes h reaches out of the range (left,right) because the function is so ridiculously easy to
 		// evaluate without error.  This keeps it in there!
 		if ( (right - x0) < h){ 
 			h = right - x0 - hlow;
-			if (h < hlow) {break;} // you're already so close to right.  We can stop now.
+			if (h < hlow) {break;} // We're already so close to right.  We can stop now.
 		}
 
 		y0 = exx1(h, x0, y0, F); evals+=dim;
-		if (evals > 4000000) break;
+		// if (evals > 4000000) break;
 	}
-		// We made it here!  This means catastrophic failure has been averted, hopefully.  Debug msgs below.
-		// std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
+		// We made it here!  This means catastrophic failure has been averted, hopefully.  Debug msgs below
 		std::cout << "We have made it to x=" << x.at(x.size()-1) << " using " << evals \
 			<< " evaluations!" << std::endl;
 		std::cout << "The last h was " << h << std::endl;
