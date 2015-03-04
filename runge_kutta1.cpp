@@ -4,6 +4,7 @@
  * we will calculate k1, k2, k3, k4, and then finally y1, the next value of y */
 
 #include<functional>
+#include<cfloat>
 #include<cmath>
 #include<algorithm>
 #include<iterator>
@@ -52,34 +53,28 @@ bool rungeKutta1(const std::function<double(double, double)> &F, double y0, std:
 	unsigned int evals = 0;
 
 	// Setting a few parameters
-	const double h0 = (right-left) / 1000.;
-	const double hlow = h0/10;
-	const double minDel = .00000001;
-	const double rMax = 2.;
-	
-	double h = h0;
+	const double hlow = (right - left) * DBL_EPSILON;
+	const double rMax = 10.;
 
 	// Core of the runge-Kutta evaluation process
+	double h = hlow;
 	for(double x0=left; x0<right; x0+=h){
 		x.push_back(x0);
 		y.push_back(y0);
 		
-		double del = std::max( std::abs( exx1(h, x0, y0, F)-exx1(h/2, x0, y0, F) ) , minDel ); evals +=2;
-		double ratio = (15./16.)*std::pow(e/del, 1./5.);
-		// Don't want the new h to be more than rMax larger
-		ratio = std::min(rMax, ratio);
-		// If the ratio is zero, well we're kind of hopeless.  Abandon ship!
-		if (ratio == 0) { return false; }
-
-		h *= ratio;
-		if (h < hlow) {h = hlow;}
+		double del = std::max( std::abs( exx1(h, x0, y0, F)-exx1(h/2., x0, exx1(h/2., x0, y0, F), F)), DBL_MIN ); evals +=2;
+		h *= std::min( (15./16.)*std::pow(e/del, 1./5.) , rMax);
+		if (h < hlow) {return false;}
+		// Sometimes h reaches out of the range (left,right).  This keeps it in.
+		if ( (right - x0) < h){ 
+			h = right - x0 - hlow;
+			if (h < hlow) {break;} // We're already so close to right.  We can stop now.
+		}
 		y0 = exx1(h, x0, y0, F); ++evals;
-		if (evals > 5000000) break;
 	}
 
 	// We made it here, means we haven't failed!  Debug messages below.
-	// std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
-	std::cout << "We have made it to x=" << x.at(x.size()-1);
+	std::cout << "We have done " << evals << " exx1 evaluations." << std::endl;
 	return true;
 }
 
@@ -96,41 +91,33 @@ bool rungeKutta1(const std::function<std::vector<double>(double, std::vector<dou
 	unsigned int evals = 0;
 
 	// Setting a few necessary parameters
-	const double h0 = (right - left) / 1000000.;
-	const double hlow = h0/1000.;
-	const double minDel = 1.e-15;
+	const double hlow = (right - left) * DBL_EPSILON;
 	const double rMax = 10.;
 
-	double h = h0;
-
 	// Core of the runge-Kutta evaluation process
+	double h = hlow;
 	for(double x0=left; x0<right; x0+=h){
 		x.push_back(x0);
 		y.push_back(y0);
 
 		// I want to the greatest del to set my next h
-		double del = minDel;
+		double del = DBL_MIN;
 		evals += 2*dim;
-		for ( double dels : (exx1(h, x0, y0, F) +(-1.)*exx1(h/2. ,x0, exx1(h/2., x0, y0, F), F)) ) {
-			del = std::max(del, std::abs(dels));
+		for ( double error_dels : (exx1(h, x0, y0, F) +(-1.)*exx1(h/2. ,x0, exx1(h/2., x0, y0, F), F)) ) {
+			del = std::max(del, std::abs(error_dels));
 		}
 
 		h *= std::min( (15./16.)*std::pow(e/del, 1./5.) , rMax);
 
 		if (h < hlow) {return false;}
-		// Sometimes h reaches out of the range (left,right) because the function is so ridiculously easy to
-		// evaluate without error.  This keeps it in there!
+		// Sometimes h reaches out of the range (left,right).  This keeps it inside
 		if ( (right - x0) < h){ 
 			h = right - x0 - hlow;
 			if (h < hlow) {break;} // We're already so close to right.  We can stop now.
 		}
-
 		y0 = exx1(h, x0, y0, F); evals+=dim;
-		// if (evals > 4000000) break;
 	}
 		// We made it here!  This means catastrophic failure has been averted, hopefully.  Debug msgs below
-		std::cout << "We have made it to x=" << x.at(x.size()-1) << " using " << evals \
-			<< " evaluations!" << std::endl;
-		std::cout << "The last h was " << h << std::endl;
+		std::cout << "We have made it using " << evals << " evaluations!" << std::endl;
 		return true;
 }
