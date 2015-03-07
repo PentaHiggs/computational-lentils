@@ -10,6 +10,10 @@
 #include<iostream>
 #include<vector>
 #include<algorithm>
+#include<array>
+
+// BOOST includes
+#include<boost/numeric/odeint.hpp>
 
 // ROOT includes
 #include"TROOT.h"
@@ -21,12 +25,22 @@
 // My integration routine
 #include"runge_kutta1.cpp"
 
+// My graphing helper class
+#include"ROOT_interface.h"
+
+
 std::vector<double> duffing_eq(double t, const std::vector<double> &x, double gamma, double f0, double w){
 	// Duffing equation with m=1, a=1/4, b=1/2
 	std::vector<double> ret;
 	ret.push_back(x[1]);
 	ret.push_back(-gamma*x[1] + .5*x[0] - 2.*std::pow(x[0],3.) + f0*std::cos(w*t));
 	return ret;
+}
+
+// A different version of the above, but with gamma = 0.1, f0 = 2.0, w = 2.4, and formatted to be used with odeint
+void duffing_eq2(const std::array<double, 2>& x, std::array<double, 2>& dxdt, const double t) {
+	dxdt[0] = x[1];
+	dxdt[1] = -0.1*x[1] + .5*x[0] - 2.*std::pow(x[0], 3.) + 2.0*std::cos(2.4*t) ;
 }
 
 void duffing_oscillator(){
@@ -73,7 +87,8 @@ void duffing_oscillator(){
 	
 	std::vector<double> actual_x; actual_x.reserve(kutta_x.size());
 	std::vector<double> actual_dx; actual_dx.reserve(kutta_x.size());
-
+	
+	
 	if(rungeKutta1(duffing_example, x1, kutta_t, kutta_x, tBounds[0], tBounds[1], .0001)) {
 
 		for(const std::vector<double> &vec : kutta_x) {
@@ -84,6 +99,37 @@ void duffing_oscillator(){
 		g3->SetLineColor(kGreen);
 		mg->Add(g3);
 	} else { std::cout << "Runge-kutta has failed for the second one" << std::endl; }
+	
+
+	// Time to draw the duffing oscillator trajectory, but with boost::odeint instead
+	using namespace boost::numeric::odeint;
+	std::array<double, 2> xStart = {0.5, 0};
+	std::vector<double> xvals;
+	std::vector<double> tvals;
+
+	int calls;
+
+	struct values {
+		std::vector< double >* m_x;
+		std::vector< double >* m_t;
+		int* calls;
+
+		values( std::vector<double>* x, std::vector<double>* t, int* calls) : calls(calls) {
+			m_x = x; m_t = t;   
+		}
+		
+		void operator()(const std::array<double, 2> &x, double t){
+			m_x->push_back(x[0]);
+			m_t->push_back(t);
+			*(calls) += 1;
+		}
+	};
+	size_t steps = integrate( duffing_eq2 , xStart, 0., 100., 0.001, values(&xvals, &tvals, &calls));
+	std::cout << "size = " << tvals.size() << std::endl;
+	TGraph* gg = new TGraph(xvals.size(), tvals.data(), xvals.data());
+	gg->SetLineColor(7);
+	mg->Add(gg);
+
 	
 	mg->Draw("AL");
 
